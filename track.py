@@ -1,12 +1,12 @@
 '''
 Object detection and tracking with OpenCV
     ==> Turning a LED on detection and
-    ==> Real Time tracking with Pan-Tilt servos 
+    ==> Real Time tracking with Pan-Tilt servos
 
     Based on original tracking object code developed by Adrian Rosebrock
     Visit original post: https://www.pyimagesearch.com/2016/05/09/opencv-rpi-gpio-and-gpio-zero-on-the-raspberry-pi/
 
-Developed by Marcelo Rovai - MJRoBot.org @ 9Feb2018 
+Developed by Marcelo Rovai - MJRoBot.org @ 9Feb2018
 '''
 
 # import the necessary packages
@@ -21,6 +21,8 @@ import cv2
 import os
 import RPi.GPIO as GPIO
 import numpy as np
+from time import sleep
+
 #define Servos GPIOs
 panServo = 23
 tiltServo = 24
@@ -31,7 +33,7 @@ inputQueue = Queue(maxsize=1)
 outputQueue = Queue(maxsize=1)
 cnts = None
 def getcnts(inputQueue, outputQueue):
- 
+
     # define the lower and upper boundaries of the object
     # to be tracked in the HSV color space
     colorLower = (11, 120, 100)
@@ -59,27 +61,41 @@ def getcnts(inputQueue, outputQueue):
             center = None
             outputQueue.put(cnts)
 
-#position servos 
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup(servo, GPIO.OUT)
+
+def setServoAngle(servo, angle):
+	#assert angle >=30 and angle <= 150
+	pwm = GPIO.PWM(servo, 50)
+	pwm.start(8)
+	dutyCycle = angle / 20. + 2.
+	pwm.ChangeDutyCycle(dutyCycle)
+	sleep(0.4)
+	pwm.stop()
+    print("[INFO] Positioning servo at GPIO {0} to {1} degrees\n".format(servo, angle))
+
+#position servos
 def positionServo (servo, angle):
-    os.system("python angleServoCtrl.py " + str(servo) + " " + str(angle))
+    #os.system("python angleServoCtrl.py " + str(servo) + " " + str(angle))
     print("[INFO] Positioning servo at GPIO {0} to {1} degrees\n".format(servo, angle))
 
 # position servos to present object at center of the frame
 def mapServoPosition (x, y):
     global panAngle
     global tiltAngle
-    
+
     k = 0.1
     panAngle = 90 - k * (250-x)
     panAngle = int(panAngle)
-    positionServo (panServo, panAngle)
+    setServoAngle (panServo, panAngle)
 
     #if (x < 300):
     #    panAngle -= 10
     #    if panAngle < 60:
     #        panAngle = 60
     #    positionServo (panServo, panAngle)
- 
+
     #if (x > 200):
     #    panAngle += 10
     #    if panAngle > 120:
@@ -91,7 +107,7 @@ def mapServoPosition (x, y):
         if tiltAngle < 40:
             tiltAngle = 40
         #positionServo (tiltServo, tiltAngle)
- 
+
     if (y > 210):
         tiltAngle += 10
         if tiltAngle < 140:
@@ -139,7 +155,7 @@ while True:
             ((x, y), radius) = cv2.minEnclosingCircle(c)
             #M = cv2.moments(c)
             #center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-            
+
             # only proceed if the radius meets a minimum size
             if radius > 5 and radius < 25:
                 # draw the circle and centroid on the frame
